@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <Import Project="..\common.props" />
   <PropertyGroup>
-    <TargetFrameworks>net452;netstandard2.0</TargetFrameworks>
+    <TargetFramework>netstandard2.0</TargetFramework>
     <AssemblyName>Akka.Persistence.EventStore.Query</AssemblyName>
     <RootNamespace>Akka.Persistence.EventStore.Query</RootNamespace>
   </PropertyGroup>
@@ -10,8 +10,8 @@
     <Description>Akka.NET Persistence read journal backed by EventStore.</Description>
     <PackageTags>akka;actors;actor model;Akka;concurrency;persistence;eventsource;eventstore;persistent query</PackageTags>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <NetStandardImplicitPackageVersion Condition=" '$(TargetFramework)' == 'netstandard2.0' ">2.0.0</NetStandardImplicitPackageVersion>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <UserSecretsId>3fb19bee-994d-44c6-8115-28d43d1c424c</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
@@ -23,13 +23,14 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Akka.Persistence.Query" Version="$(AkkaVersion)" />
-    <ProjectReference Include="..\Akka.Persistence.EventStore\Akka.Persistence.EventStore.csproj" />
+    <PackageReference Include="Akka.Persistence.Query" Version="1.4.0-beta4" />
+    <PackageReference Include="EventStore.Client" Version="5.0.6" />
+    <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
   </ItemGroup>
 
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'net452' ">
-    <DefineConstants>$(DefineConstants);SERIALIZATION</DefineConstants>
-  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Akka.Persistence.EventStore\Akka.Persistence.EventStore.csproj" />
+  </ItemGroup>
 
   <PropertyGroup Condition=" '$(TargetFramework)' == 'netstandard2.0' ">
     <DefineConstants>$(DefineConstants);CORECLR</DefineConstants>
