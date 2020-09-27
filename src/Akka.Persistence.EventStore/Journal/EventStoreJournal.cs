@@ -46,7 +46,7 @@ namespace Akka.Persistence.EventStore.Journal
                      success: () => new Status.Success("Connected"),
                      failure: ex => new Status.Failure(ex)
                  );
-            
+
             _subscriptions = new EventStoreSubscriptions(_connRead, Context);
         }
 
@@ -105,9 +105,9 @@ namespace Akka.Persistence.EventStore.Journal
                 }
 
                 var adapterConstructor = journalAdapterType.GetConstructor(new[] { typeof(Akka.Serialization.Serialization) });
-                
-                IEventAdapter journalAdapter = (adapterConstructor != null 
-                    ? adapterConstructor.Invoke(new object[] { _serialization }) 
+
+                IEventAdapter journalAdapter = (adapterConstructor != null
+                    ? adapterConstructor.Invoke(new object[] { _serialization })
                     : Activator.CreateInstance(journalAdapterType)) as IEventAdapter;
 
                 if (journalAdapter == null)
@@ -128,34 +128,21 @@ namespace Akka.Persistence.EventStore.Journal
 
         public override async Task<long> ReadHighestSequenceNrAsync(string persistenceId, long fromSequenceNr)
         {
-            try
+            var slice = await _conn.ReadStreamEventsBackwardAsync(persistenceId, StreamPosition.End, 1, false).ConfigureAwait(false);
+            if (slice.Status == SliceReadStatus.StreamNotFound)
             {
-                var slice = await _conn.ReadStreamEventsBackwardAsync(persistenceId, StreamPosition.End, 1, false);
-
-                long sequence = 0;
-
-                if (slice.Events.Any())
-                {
-                    var @event = slice.Events.First();
-                    var adapted = _eventAdapter.Adapt(@event);
-                    sequence = adapted.SequenceNr;
-                }
-                else
-                {
-                    var metadata = await _conn.GetStreamMetadataAsync(persistenceId);
-                    if (metadata.StreamMetadata.TruncateBefore != null)
-                    {
-                        sequence = metadata.StreamMetadata.TruncateBefore.Value;
-                    }
-                }
-
-                return sequence;
+                return 0L;
             }
-            catch (Exception e)
+
+            if (slice.Events.Length > 0)
             {
-                _log.Error(e, e.Message);
-                throw;
+                var adapted = _eventAdapter.Adapt(slice.Events.First());
+                return adapted.SequenceNr;
             }
+
+            var metadata = await _conn.GetStreamMetadataAsync(persistenceId).ConfigureAwait(false);
+            return metadata.StreamMetadata.TruncateBefore ?? throw new OperationCanceledException(
+                $"ReadHighestSequenceNrAsync expected metadata object containing property 'TruncateBefore' for [{persistenceId}]");
         }
 
         public override async Task ReplayMessagesAsync(
@@ -198,10 +185,10 @@ namespace Akka.Persistence.EventStore.Journal
 
                     if (max < localBatchSize)
                     {
-                        localBatchSize = (int) max;
+                        localBatchSize = (int)max;
                     }
 
-                    slice = await _conn.ReadStreamEventsForwardAsync(persistenceId, start, localBatchSize, false);
+                    slice = await _conn.ReadStreamEventsForwardAsync(persistenceId, start, localBatchSize, false).ConfigureAwait(false);
 
                     foreach (var @event in slice.Events)
                     {
@@ -226,13 +213,12 @@ namespace Akka.Persistence.EventStore.Journal
             }
         }
 
-        protected override async Task<IImmutableList<Exception>> WriteMessagesAsync(
-            IEnumerable<AtomicWrite> atomicWrites)
+        protected override async Task<IImmutableList<Exception>> WriteMessagesAsync(IEnumerable<AtomicWrite> atomicWrites)
         {
             var results = new List<Exception>();
             foreach (var atomicWrite in atomicWrites)
             {
-                var persistentMessages = (IImmutableList<IPersistentRepresentation>) atomicWrite.Payload;
+                var persistentMessages = (IImmutableList<IPersistentRepresentation>)atomicWrite.Payload;
 
                 var persistenceId = atomicWrite.PersistenceId;
 
@@ -253,7 +239,7 @@ namespace Akka.Persistence.EventStore.Journal
                     };
                     var expectedVersion = pendingWrite.ExpectedSequenceId < 0
                             ? ExpectedVersion.NoStream
-                            : (int) pendingWrite.ExpectedSequenceId;
+                            : (int)pendingWrite.ExpectedSequenceId;
 
                     await _conn.AppendToStreamAsync(pendingWrite.StreamId, expectedVersion, pendingWrite.EventData);
                     results.Add(null);
@@ -271,13 +257,13 @@ namespace Akka.Persistence.EventStore.Journal
         {
             if (toSequenceNr == long.MaxValue)
             {
-                var slice = await _conn.ReadStreamEventsBackwardAsync(persistenceId, StreamPosition.End, 1, false);
-                if (slice.Events.Any())
+                var slice = await _conn.ReadStreamEventsBackwardAsync(persistenceId, StreamPosition.End, 1, false).ConfigureAwait(false);
+                if (slice.Events.Length > 0)
                 {
                     var @event = slice.Events.First();
                     var highestEventPosition = @event.OriginalEventNumber;
                     await _conn.SetStreamMetadataAsync(persistenceId, ExpectedVersion.Any,
-                        StreamMetadata.Create(truncateBefore: highestEventPosition + 1));
+                        StreamMetadata.Create(truncateBefore: highestEventPosition + 1)).ConfigureAwait(false);
                 }
             }
             else
@@ -300,11 +286,11 @@ namespace Akka.Persistence.EventStore.Journal
         private void StartPersistenceIdSubscription(SubscribePersistenceId sub)
         {
             // Sequence numbers are Akka issued, 1-based, convert to 0-based exclusive EventStore offsets
-            long? offset = sub.FromSequenceNr == 0 ? (long?) null : (sub.FromSequenceNr - 1);
+            long? offset = sub.FromSequenceNr == 0 ? (long?)null : (sub.FromSequenceNr - 1);
             _subscriptions.Subscribe(Sender, sub.PersistenceId, offset, sub.Max, e =>
             {
                 var p = _eventAdapter.Adapt(e);
-                return p!= null ? new ReplayedMessage(p) : null;
+                return p != null ? new ReplayedMessage(p) : null;
             });
         }
 
@@ -320,7 +306,7 @@ namespace Akka.Persistence.EventStore.Journal
                 Sender,
                 msg.Tag,
                 msg.FromOffset,
-                (int) msg.Max,
+                (int)msg.Max,
                 @event => new ReplayedTaggedMessage(
                     _eventAdapter.Adapt(@event),
                     msg.Tag,

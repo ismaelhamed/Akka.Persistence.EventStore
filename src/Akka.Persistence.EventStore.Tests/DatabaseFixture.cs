@@ -87,7 +87,7 @@ namespace Akka.Persistence.EventStore.Tests
                         {
                             "EVENTSTORE_RUN_PROJECTIONS=All",
                             "EVENTSTORE_START_STANDARD_PROJECTIONS=True",
-                            "EVENTSTORE_MEM_DB=1"
+                            "EVENTSTORE_MEM_DB=True"
                         },
                         HostConfig = new HostConfig
                         {
@@ -144,8 +144,7 @@ namespace Akka.Persistence.EventStore.Tests
             if (_client != null)
             {
                 await _client.Containers.StopContainerAsync(_eventStoreContainerName, new ContainerStopParameters { WaitBeforeKillSeconds = 0 });
-                await _client.Containers.RemoveContainerAsync(_eventStoreContainerName,
-                    new ContainerRemoveParameters {Force = true});
+                await _client.Containers.RemoveContainerAsync(_eventStoreContainerName, new ContainerRemoveParameters {Force = true});
                 _client.Dispose();
             }
         }
